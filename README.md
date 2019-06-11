@@ -17,6 +17,7 @@ The examples folder contains example solutions across a variety of Google Cloud 
 * [CloudML Bee Health Detection](examples/cloudml-bee-health-detection) - Detect if a bee is unhealthy based on an image of it and its subspecies.
 * [CloudML Energy Price Forecasting](examples/cloudml-energy-price-forecasting) - Predicting the future energy price based on historical price and weather.
 * [CloudML Fraud Detection](examples/cloudml-fraud-detection) - Fraud detection model for credit-cards transactions.
+* [CloudML Music Recommendation](examples/cloudml-music-recommendation) - Recommend songs given either a user or song.
 * [CloudML Sentiment Analysis](examples/cloudml-sentiment-analysis) - Sentiment analysis for movie reviews using TensorFlow `RNNEstimator`.
 * [CloudML Scikit-learn Pipeline](examples/cloudml-sklearn-pipeline) - This is a example for building a scikit-learn-based machine learning pipeline trainer that can be run on AI Platform. The pipeline can be trained locally or remotely on AI platform. The trained model can be further deployed on AI platform to serve online traffic.
 * [CloudML TensorFlow Profiling](examples/tensorflow-profiling-examples) - TensorFlow profiling examples for training models with CloudML
