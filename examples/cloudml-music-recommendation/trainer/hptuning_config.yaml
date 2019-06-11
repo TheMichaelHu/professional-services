@@ -1,0 +1,36 @@
+trainingInput:
+  scaleTier: STANDARD_1
+  hyperparameters:
+    maxTrials: 8
+    maxParallelTrials: 4
+    enableTrialEarlyStopping: True
+    goal: MAXIMIZE 
+    hyperparameterMetricTag: recall/recall_1000
+    params:
+    - parameterName: num_layers
+      type: INTEGER
+      discreteValues:
+      minValue: 1
+      maxValue: 5
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: user_embed_mult
+      type: DOUBLE
+      minValue: 1
+      maxValue: 4
+    - parameterName: item_embed_mult
+      type: DOUBLE
+      minValue: 1
+      maxValue: 2
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: learning_rate
+      type: DOUBLE
+      minValue: 0.0001
+      maxValue: 0.01
+      scaleType: UNIT_LOG_SCALE
+    - parameterName: batch_size
+      type: DISCRETE
+      discreteValues:
+      - 256
+      - 512
+      - 1024
+      scaleType: UNIT_LOG_SCALE
