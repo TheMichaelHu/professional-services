@@ -1,4 +1,6 @@
 # CloudML Music Recommendation
+![Tensorboard projector showing close items to a user.](img/projector.png)
+
 A simple machine learning system capable of recommending songs given a user as a query
 using collaborative filtering and TensorFlow.
 
@@ -9,8 +11,13 @@ This example covers how distributed data preprocessing, training, and serving
 can be done on [Google Cloud Platform](https://cloud.google.com/)(GCP).
 
 Further reading:
-  - [Neural Collaborative Filtering](https://arxiv.org/abs/1708.05031)
-  - [Deep Neural Networks for YouTube Recommendations](https://ai.google/research/pubs/pub45530)
+  - [Neural Collaborative Filtering](https://arxiv.org/abs/1708.05031): A paper
+    on using neural networks instead of matrix factorization to perform
+    collaborative filtering.
+  - [Deep Neural Networks for YouTube Recommendations](https://ai.google/research/pubs/pub45530):
+    Youtube's approach to recommending millions of videos at low latencies by
+    first generating candidates from multiple models and ranking the candidate
+    pool.
 
 For a fully managed service, check out [Recommendations
 AI](https://cloud.google.com/recommendations/).
@@ -102,8 +109,10 @@ tiers](https://cloud.google.com/ml-engine/docs/tensorflow/machine-types).
 ### Tensorboard
 Model training can be monitored on Tensorboard using the following command:
 ```shell
-tensorboard --logdir <path to model dir>/trials/<trial number>
+tensorboard --logdir <path to model dir>/<trial number>
 ```
+Tensorboard's projector, in particular, is very useful for debugging
+or analyzing embeddings.
 
 ## Serving
 Models can be hosted on CAIP, which can be used to make online and batch predictions via JSON requests.

@@ -104,3 +104,9 @@ TRAIN_SPEC = _get_train_spec()
 SERVE_SPEC = _get_train_spec()
 SERVE_SPEC.pop(COUNT_KEY)
 RAW_CATEGORICAL_FEATURES = [TAGS_KEY, TOP_10_KEY]
+
+# tensorboard projector config
+PROJECTOR_PATH = "metadata.tsv"
+PROJECTOR_NAME = "combined_embedding"
+PROJECTOR_USER_SAMPLES = 2000
+PROJECTOR_ITEM_SAMPLES = 8000

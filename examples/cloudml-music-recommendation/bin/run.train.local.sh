@@ -36,9 +36,5 @@ gcloud ai-platform local train \
   -- \
   --model_dir "${MODEL_DIR}" \
   --input_path "${INPUT_PATH}" \
-  --tft_dir "${TFT_PATH}" \
-  --batch_size 2048 \
-  --max_steps 10000 \
-  --user_embed_mult 5 \
-  --learning_rate 0.0001
+  --tft_dir "${TFT_PATH}"
 

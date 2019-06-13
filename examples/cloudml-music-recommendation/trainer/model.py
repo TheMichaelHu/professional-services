@@ -21,9 +21,12 @@ import json
 import os
 
 import tensorflow as tf
+from tensorflow.contrib.tensorboard.plugins import projector
 import tensorflow_transform as tft
 
-from constants import constants  # pylint: disable=g-bad-import-order
+# pylint: disable=g-bad-import-order
+from constants import constants
+from trainer import utils
 
 
 def _default_embedding_size(vocab_size):
@@ -161,7 +164,7 @@ def _get_embedding_matrix(embedding_size, tft_output, vocab_name):
   return tf.get_variable(
       "{}_embedding".format(vocab_name),
       (vocab_size, embedding_size),
-      initializer=tf.zeros_initializer())
+      initializer=tf.initializers.random_uniform(-1, 1))
 
 
 def _update_embedding_matrix(row_indices, rows, embedding_size, tft_output,
@@ -183,14 +186,8 @@ def _update_embedding_matrix(row_indices, rows, embedding_size, tft_output,
   return tf.scatter_update(embedding, row_indices, rows)
 
 
-def _normalize(t):
-  """Turn each row of the given tensor into a unit vector."""
-  norm = tf.sqrt(tf.reduce_sum(tf.square(t), axis=1, keepdims=True))
-  return t / norm
-
-
 def _get_top_k(features, embedding, feature_name, item_embedding, k=10):
-  """Get the k most similar items for a given feature (user or item).
+  """Gets the k most similar items for a given feature (user or item).
 
   Args:
     features: a batch of features.
@@ -211,6 +208,37 @@ def _get_top_k(features, embedding, feature_name, item_embedding, k=10):
   norm = tf.gather(embedding, indices)
   sims = tf.matmul(norm, item_embedding, transpose_b=True)
   return tf.math.top_k(sims, k)
+
+
+def _get_projector_data(user_embedding, user_size, item_embedding, item_size):
+  """Samples the given embeddings, joins them, and creates a projector config.
+
+  Args:
+    user_embedding: a (num_users x embedding_dim) embedding of users.
+    user_size: the number of users.
+    item_embedding: a (num_items x embedding_dim) embedding of items.
+    item_size: the number of items.
+
+  Returns:
+    A tuple of (sample, config):
+      sample: a tensor of samples of the user and item embeddings.
+      config: a ProjectorConfig for the sample.
+  """
+  user_indices = tf.random.uniform([constants.PROJECTOR_USER_SAMPLES],
+                                   maxval=user_size, dtype=tf.int32)
+  user_sample = tf.gather(user_embedding, user_indices)
+  item_indices = tf.random.uniform([constants.PROJECTOR_ITEM_SAMPLES],
+                                   maxval=item_size, dtype=tf.int32)
+  item_sample = tf.gather(item_embedding, item_indices)
+  combined_samples = tf.concat([user_sample, item_sample], 0)
+  sample = tf.get_variable(constants.PROJECTOR_NAME, combined_samples.shape)
+  sample = tf.assign(sample, combined_samples)
+
+  config = projector.ProjectorConfig()
+  embedding = config.embeddings.add()
+  embedding.tensor_name = constants.PROJECTOR_NAME
+  embedding.metadata_path = constants.PROJECTOR_PATH
+  return sample, config
 
 
 def _model_fn(features, labels, mode, params):
@@ -256,11 +284,10 @@ def _model_fn(features, labels, mode, params):
                                         item_size, hparams.num_layers)
   embedding_size = min(user_size, item_size)
 
-  # Map cosine similarity of user and item embeddings to predicted listen count.
-  user_norm = _normalize(user_net)
-  item_norm = _normalize(item_net)
+  user_norm = tf.nn.l2_normalize(user_net, 1)
+  item_norm = tf.nn.l2_normalize(item_net, 1)
 
-  # Prediction op
+  # Prediction op: Return the top k closest items for a given user or item.
   if mode == tf.estimator.ModeKeys.PREDICT:
     table = tf.contrib.lookup.index_to_string_table_from_file(
         tft_output.vocabulary_file_by_name(constants.ITEM_VOCAB_NAME))
@@ -286,7 +313,8 @@ def _model_fn(features, labels, mode, params):
     }
     return tf.estimator.EstimatorSpec(mode, predictions=predictions)
 
-  # Eval op
+  # Eval op: Log the recall of the batch and save a sample of user+item shared
+  # embedding space for tensorboard projector.
   user_embedding = _update_embedding_matrix(
       tft_features[constants.TFT_USER_KEY],
       user_norm,
@@ -311,15 +339,24 @@ def _model_fn(features, labels, mode, params):
   tf.summary.merge_all()
 
   preds = tf.reduce_sum(tf.multiply(user_norm, item_norm), axis=1)
-  with tf.control_dependencies([user_embedding, item_embedding]):
-    loss = tf.losses.mean_squared_error(labels, preds)
+  loss = tf.losses.mean_squared_error(labels, preds)
 
   if mode == tf.estimator.ModeKeys.EVAL:
+    samples, config = _get_projector_data(user_embedding, user_size,
+                                          item_embedding, item_size)
+    writer = tf.summary.FileWriter(params["model_dir"])
+    projector.visualize_embeddings(writer, config)
+    with tf.control_dependencies([samples]):
+      loss = tf.identity(loss)
     return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
 
-  # Training op
+  # Training op: Update the weights via backpropagation.
+  samples = constants.PROJECTOR_USER_SAMPLES + constants.PROJECTOR_ITEM_SAMPLES
+  sample = tf.get_variable(constants.PROJECTOR_NAME, [samples, embedding_size])
+
   optimizer = tf.train.AdagradOptimizer(learning_rate=hparams.learning_rate)
-  train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+  with tf.control_dependencies([user_embedding, item_embedding, sample]):
+    train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
   return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 
@@ -337,14 +374,16 @@ def get_recommender(params):
       keep_checkpoint_max=params.keep_checkpoint_max,
       log_step_count_steps=params.log_step_count_steps)
   trial_id = _get_trial_id()
-  model_dir = os.path.join(params.model_dir, "trials", trial_id)
+  model_dir = os.path.join(params.model_dir, trial_id)
+  utils.write_projector_metadata(model_dir)
+
   hparams = tf.contrib.training.HParams(
       user_embed_mult=params.user_embed_mult,
       item_embed_mult=params.item_embed_mult,
       learning_rate=params.learning_rate,
       num_layers=params.num_layers)
-
   model_params = {
+      "model_dir": model_dir,
       "tft_dir": params.tft_dir,
       "hparams": hparams,
   }

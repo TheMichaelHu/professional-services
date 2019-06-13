@@ -43,8 +43,8 @@ gcloud ai-platform jobs submit training "${TRAINING_JOB_NAME}" \
   --model_dir "${MODEL_PATH}" \
   --input_path "${INPUT_PATH}" \
   --tft_dir "${TFT_PATH}" \
-  --max_steps 100000 \
-  --batch_size 2048 \
+  --max_steps 50000 \
+  --batch_size 512 \
   --user_embed_mult 2.3 \
   --item_embed_mult 1.2 \
   --num_layers 5 \

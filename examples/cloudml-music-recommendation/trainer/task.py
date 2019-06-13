@@ -55,12 +55,12 @@ def parse_arguments(argv):
       "--batch_size",
       help="Number of rows of data to be fed into the model each iteration.",
       type=int,
-      default=32)
+      default=512)
   parser.add_argument(
       "--max_steps",
       help="The maximum number of iterations to train the model for.",
       type=int,
-      default=1000)
+      default=10000)
   parser.add_argument(
       "--user_embed_mult",
       help="A multiplier on the user embedding size.",
