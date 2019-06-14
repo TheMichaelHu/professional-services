@@ -209,25 +209,22 @@ def _get_top_k(features, embedding, feature_name, item_embedding, k=10):
   return tf.math.top_k(sims, k)
 
 
-def _get_projector_data(user_embedding, user_size, item_embedding, item_size):
+def _get_projector_data(user_embedding, user_indices, item_embedding,
+                        item_indices):
   """Samples the given embeddings, joins them, and creates a projector config.
 
   Args:
     user_embedding: a (num_users x embedding_dim) embedding of users.
-    user_size: the number of users.
+    user_indices: the indices to take from the user embedding.
     item_embedding: a (num_items x embedding_dim) embedding of items.
-    item_size: the number of items.
+    item_indices: the indices to take from the item embedding.
 
   Returns:
     A tuple of (sample, config):
       sample: a tensor of samples of the user and item embeddings.
       config: a ProjectorConfig for the sample.
   """
-  user_indices = tf.random.uniform([constants.PROJECTOR_USER_SAMPLES],
-                                   maxval=user_size, dtype=tf.int32)
   user_sample = tf.gather(user_embedding, user_indices)
-  item_indices = tf.random.uniform([constants.PROJECTOR_ITEM_SAMPLES],
-                                   maxval=item_size, dtype=tf.int32)
   item_sample = tf.gather(item_embedding, item_indices)
   combined_samples = tf.concat([user_sample, item_sample], 0)
   sample = tf.get_variable(constants.PROJECTOR_NAME, combined_samples.shape)
@@ -344,8 +341,10 @@ def _model_fn(features, labels, mode, params):
   tf.summary.merge_all()
 
   if mode == tf.estimator.ModeKeys.EVAL:
-    samples, config = _get_projector_data(user_embedding, user_size,
-                                          item_embedding, item_size)
+    samples, config = _get_projector_data(user_embedding,
+                                          params["projector_users"],
+                                          item_embedding,
+                                          params["projector_items"])
     writer = tf.summary.FileWriter(params["model_dir"])
     projector.visualize_embeddings(writer, config)
     with tf.control_dependencies([samples]):
@@ -379,7 +378,8 @@ def get_recommender(params):
       log_step_count_steps=params.log_step_count_steps)
   trial_id = _get_trial_id()
   model_dir = os.path.join(params.model_dir, trial_id)
-  utils.write_projector_metadata(model_dir)
+  user_indices, item_indices = utils.write_projector_metadata(model_dir,
+                                                              params.tft_dir)
 
   hparams = tf.contrib.training.HParams(
       user_embed_mult=params.user_embed_mult,
@@ -391,6 +391,8 @@ def get_recommender(params):
       "model_dir": model_dir,
       "tft_dir": params.tft_dir,
       "hparams": hparams,
+      "projector_users": user_indices,
+      "projector_items": item_indices,
   }
   estimator = tf.estimator.Estimator(
       model_fn=_model_fn,
