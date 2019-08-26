@@ -47,6 +47,7 @@ def ReadBQ(p, query):
 def _build_features(data):
   """."""
   features = {}
+  features[constants.MEASUREMENT_KEY] = data[constants.MEASUREMENT_KEY]
   for cycle in constants.CYCLIC_DATA:
     feature, period = cycle["feature"], cycle["period"]
     features[feature + "_sin"] = [math.sin(2 * math.pi * x / period)

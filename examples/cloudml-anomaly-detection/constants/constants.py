@@ -48,7 +48,12 @@ FEATURES = [MEASUREMENT_KEY] + [x["feature"] for x in CYCLIC_DATA]
 
 def _get_train_spec():
   """Returns a dict mapping training features to tfrecord features."""
-  return {key: tf.io.VarLenFeature(dtype=tf.float32) for key in FEATURES}
+  spec = {}
+  spec[MEASUREMENT_KEY] = tf.io.VarLenFeature(dtype=tf.float32)
+  for cycle in CYCLIC_DATA:
+    spec[cycle["feature"] + "_sin"] = tf.io.VarLenFeature(dtype=tf.float32)
+    spec[cycle["feature"] + "_cos"] = tf.io.VarLenFeature(dtype=tf.float32)
+  return spec
 
 
 # def get_serving_stub():
