@@ -58,15 +58,15 @@ def parse_arguments(argv):
       type=int,
       default=10000)
   parser.add_argument(
-      "--num_layers",
-      help="Number of layers to use to map higher dim embedding a lower dim.",
+      "--encoding_dims",
+      help=".",
       type=int,
-      default=2)
+      default=100)
   parser.add_argument(
-      "--embedding_size",
-      help="The dimension of the user-item embedding space.",
+      "--decoding_dims",
+      help=".",
       type=int,
-      default=30)
+      default=100)
   parser.add_argument(
       "--learning_rate",
       help="Multiplier on the gradient to adjust weights each iteration.",
@@ -76,7 +76,7 @@ def parse_arguments(argv):
       "--save_checkpoints_steps",
       help="Number of steps to run before saving a model checkpoint.",
       type=int,
-      default=5000)
+      default=500)
   parser.add_argument(
       "--keep_checkpoint_max",
       help="Number of model checkpoints to keep.",
@@ -86,7 +86,7 @@ def parse_arguments(argv):
       "--log_step_count_steps",
       help="Number of steps to run before logging training performance.",
       type=int,
-      default=1000)
+      default=100)
   parser.add_argument(
       "--eval_steps",
       help="Number of steps to use to evaluate the model.",

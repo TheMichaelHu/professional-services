@@ -37,12 +37,11 @@ def get_input_fn(file_pattern, batch_size, num_epochs=None):
   """
 
   def _parse_example(example):
-    """Parses a row in a batch of data into features and labels."""
-    parsed_example = tf.parse_single_example(
+    """Parses a row in a batch of data into features."""
+    parsed_example = tf.io.parse_single_example(
         serialized=example,
         features=constants.TRAIN_SPEC)
-    label = parsed_example.pop(constants.LABEL_KEY)
-    return parsed_example, label
+    return parsed_example
 
   def _input_fn():
     """Reads TF-records and return the data in a tf.dataset."""
@@ -66,30 +65,13 @@ def get_serving_input_fn():
     An input fn for serving.
   """
 
-  def _get_tensor_stubs():
-    """Creates input tensors for the model with dynamic shapes."""
-    features = {}
-    stub = constants.get_serving_stub()
-    for feature in constants.SERVE_SPEC:
-      if feature not in constants.RAW_CATEGORICAL_FEATURES:
-        t = tf.placeholder(constants.SERVE_SPEC[feature].dtype)
-        features[feature] = tf.fill(
-            tf.shape(t), tf.cast(stub[feature], t.dtype))
-    for feature in constants.RAW_CATEGORICAL_FEATURES:
-      t = tf.placeholder(tf.float32)
-      dynamic_shape = tf.shape(t, out_type=tf.int64)
-      features[feature] = tf.SparseTensor(
-          [[0, 0], [1, 1]], ["", ""], dynamic_shape)
-    return features
-
   def _serving_input_fn():
     """Creates in ServingInputReceiver to handle JSON inputs."""
     receiver_tensors = {
-        constants.USER_KEY: tf.placeholder(tf.string),
-        constants.ITEM_KEY: tf.placeholder(tf.string),
+        x: tf.placeholder(tf.float32, [None, constants.WINDOW_SIZE])
+        for x in constants.FEATURES
     }
-    features = _get_tensor_stubs()
-    features.update(receiver_tensors)
+    features = receiver_tensors
     return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
 
   return _serving_input_fn

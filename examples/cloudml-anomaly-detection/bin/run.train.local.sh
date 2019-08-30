@@ -36,6 +36,7 @@ gcloud ai-platform local train \
   -- \
   --model_dir "${MODEL_DIR}" \
   --input_dir "${INPUT_PATH}" \
-  --tft_dir "${TFT_PATH}"
+  --max_steps 11000
+
 
 echo "Upon completion, serve the model by running: bin/run.serve.local.sh"

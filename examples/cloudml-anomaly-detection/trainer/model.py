@@ -26,17 +26,53 @@ import tensorflow as tf
 from constants import constants
 
 
-def _model_fn():
-  """A model function for item recommendation."""
+def _make_model(hparams):
+  return tf.keras.Sequential([
+      tf.keras.layers.LSTM(hparams.encoding_dims),
+      tf.keras.layers.RepeatVector(constants.WINDOW_SIZE),
+      tf.keras.layers.LSTM(hparams.decoding_dims, return_sequences=True),
+      tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1)),
+  ])
 
-  model = tf.keras.Sequential()
-  model.add(tf.keras.layers.LSTM(100, activation="relu", input_shape=(n_in,1)))
-  model.add(tf.keras.layers.RepeatVector(n_in))
-  model.add(tf.keras.layers.LSTM(100, activation="relu", return_sequences=True))
-  model.add(tf.keras.layers.TimeDistributed(Dense(1)))
 
-  model.compile(optimizer="adam", loss="mse")
-  return model
+# pylint: disable=unused-argument
+def _model_fn(features, labels, mode, params):
+  """."""
+  hparams = params["hparams"]
+  model = _make_model(hparams)
+
+  # Stack features to make 3D Tensors of shape (batch, time, features)
+  seq = tf.stack([features[x] for x in constants.FEATURES], axis=2)
+  training = (mode == tf.estimator.ModeKeys.TRAIN)
+  predictions = model(seq, training=training)
+
+  # Predicting the reverse of the sequence is often easier.
+  predictions = tf.reverse(tf.squeeze(predictions), [1])
+  predictions = tf.reverse_sequence(
+      tf.squeeze(predictions),
+      seq_lengths=tf.tile(
+          tf.constant([constants.WINDOW_SIZE], dtype=tf.int64),
+          multiples=tf.expand_dims(hparams.batch_size, axis=0)),
+      seq_axis=1,
+      batch_axis=0)
+
+  if mode == tf.estimator.ModeKeys.PREDICT:
+    prediction_out = {
+        "predictions": predictions,
+    }
+    return tf.estimator.EstimatorSpec(mode, predictions=prediction_out)
+
+  loss = tf.losses.mean_squared_error(features[constants.MEASUREMENT_KEY],
+                                      predictions)
+
+  if mode == tf.estimator.ModeKeys.EVAL:
+    return tf.estimator.EstimatorSpec(mode, loss=loss)
+
+  # Training op: Update the weights via backpropagation.
+  optimizer = tf.train.AdagradOptimizer(learning_rate=hparams.learning_rate)
+  train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+
+  return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 
 def _get_trial_id():
@@ -47,7 +83,7 @@ def _get_trial_id():
 
 
 def get_model(params):
-  """Returns the product recommendation model."""
+  """."""
   config = tf.estimator.RunConfig(
       save_checkpoints_steps=params.save_checkpoints_steps,
       keep_checkpoint_max=params.keep_checkpoint_max,
@@ -56,15 +92,17 @@ def get_model(params):
   model_dir = os.path.join(params.model_dir, trial_id)
 
   hparams = tf.contrib.training.HParams(
+      batch_size=params.batch_size,
       learning_rate=params.learning_rate,
-      num_layers=params.num_layers,
-      embedding_size=params.embedding_size)
+      encoding_dims=params.encoding_dims,
+      decoding_dims=params.decoding_dims,
+  )
   model_params = {
       "model_dir": model_dir,
       "hparams": hparams,
   }
-  estimator = tf.keras.estimator.model_to_estimator(
-      keras_model=model_fn(),
+  estimator = tf.estimator.Estimator(
+      model_fn=_model_fn,
       model_dir=model_dir,
       config=config,
       params=model_params)

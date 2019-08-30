@@ -30,6 +30,7 @@ TAG_VOCAB_NAME = "vocab_tags"
 TMP_DIR = "tmp"
 
 # bq data
+WINDOW_SIZE = 10
 MEASUREMENT_KEY = "sample_measurement"
 DAY_OF_WEEK_KEY = "day_of_week"
 MONTH_KEY = "month"
@@ -43,19 +44,24 @@ CYCLIC_DATA = [
     {"feature": DAY_OF_YEAR_KEY, "period": 365},
     {"feature": HOUR_KEY, "period": 24},
 ]
-FEATURES = [MEASUREMENT_KEY] + [x["feature"] for x in CYCLIC_DATA]
+FEATURES = ([MEASUREMENT_KEY]
+            + [x["feature"] + "_sin" for x in CYCLIC_DATA]
+            + [x["feature"] + "_cos" for x in CYCLIC_DATA])
 
 
 def _get_train_spec():
   """Returns a dict mapping training features to tfrecord features."""
   spec = {}
-  spec[MEASUREMENT_KEY] = tf.io.VarLenFeature(dtype=tf.float32)
+  spec[MEASUREMENT_KEY] = tf.io.FixedLenFeature([WINDOW_SIZE], dtype=tf.float32)
   for cycle in CYCLIC_DATA:
-    spec[cycle["feature"] + "_sin"] = tf.io.VarLenFeature(dtype=tf.float32)
-    spec[cycle["feature"] + "_cos"] = tf.io.VarLenFeature(dtype=tf.float32)
+    spec[cycle["feature"] + "_sin"] = tf.io.FixedLenFeature([WINDOW_SIZE],
+                                                            dtype=tf.float32)
+    spec[cycle["feature"] + "_cos"] = tf.io.FixedLenFeature([WINDOW_SIZE],
+                                                            dtype=tf.float32)
   return spec
 
 
+TIMESERIES_KEY = "timeseries"
 # def get_serving_stub():
 #   """Returns stubbed values for features to use during serving when only username matters."""
 #   stub = {}

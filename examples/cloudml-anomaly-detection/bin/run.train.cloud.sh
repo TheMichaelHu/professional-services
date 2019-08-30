@@ -28,7 +28,6 @@ PROJECT_ID="$(get_project_id)"
 INPUT_BUCKET="gs://${PROJECT_ID}-bucket"
 OUTPUT_BUCKET="gs://${PROJECT_ID}-bucket"
 INPUT_PATH="${INPUT_BUCKET}/${USER}/${OUTPUT_DIR}/${MODEL_INPUTS_DIR}"
-TFT_PATH="${INPUT_PATH}/${TFT_DIR}/transform_fn"
 MODEL_PATH="${OUTPUT_BUCKET}/${USER}/${MODEL_DIR}/${NOW}/"
 TRAINING_JOB_NAME="${MODEL_NAME}_${NOW}"
 
@@ -37,18 +36,13 @@ gcloud ai-platform jobs submit training "${TRAINING_JOB_NAME}" \
   --staging-bucket "${OUTPUT_BUCKET}" \
   --package-path trainer \
   --region us-east1 \
-  --runtime-version 1.13 \
+  --runtime-version 1.14 \
   --scale-tier "${SCALE_TIER}" \
   -- \
   --model_dir "${MODEL_PATH}" \
   --input_dir "${INPUT_PATH}" \
-  --tft_dir "${TFT_PATH}" \
-  --max_steps 300000 \
+  --max_steps 100000 \
   --batch_size 512 \
-  --user_embed_mult 1.5 \
-  --item_embed_mult 1 \
-  --num_layers 5 \
-  --embedding_size 50 \
-  --learning_rate .0001
+  --learning_rate .001
 
 echo "Upon completion, serve the model by running: bin/run.serve.cloud.sh ${NOW}"
